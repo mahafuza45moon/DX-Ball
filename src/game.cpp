@@ -1,8 +1,13 @@
 #include "game.h"
+#include "sound.h"
 #ifdef _WIN32
 #  include <windows.h>
 #endif
-#include <GL/glut.h>
+#ifdef __APPLE__
+#  include <GLUT/glut.h>
+#else
+#  include <GL/glut.h>
+#endif
 #include <cmath>
 #include <cstdlib>
 #include <string>
@@ -276,6 +281,7 @@ static void startNewRun()
 // -----------------------------------------------------------------------
 void gameInit()
 {
+    soundInit();
     startNewRun();
     state = GameState::MENU;   // override: start at menu instead of WAITING
     menuIndex = 0;
@@ -371,21 +377,27 @@ void gameUpdate(float dt)
     ball.y += ball.vy * dt;
 
     // Wall collisions
+    bool wallHit = false;
     if (ball.x < 0.0f) {
         ball.x  = 0.0f;
         ball.vx = std::fabs(ball.vx);
+        wallHit = true;
     }
     if (ball.x + ball.size > WORLD_W) {
         ball.x  = WORLD_W - ball.size;
         ball.vx = -std::fabs(ball.vx);
+        wallHit = true;
     }
     if (ball.y + ball.size > WORLD_H) {
         ball.y  = WORLD_H - ball.size;
         ball.vy = -std::fabs(ball.vy);
+        wallHit = true;
     }
+    if (wallHit) soundPlayWallBounce();
 
     // Ball fell below screen — lose a life
     if (ball.y < 0.0f) {
+        soundPlayLifeLost();
         --lives;
         if (lives <= 0)
             state = GameState::GAME_OVER;
@@ -406,6 +418,7 @@ void gameUpdate(float dt)
         ball.vx = s * std::sin(angle);
         ball.vy = s * std::cos(angle);
         ball.y  = paddle.y + paddle.h;
+        soundPlayPaddleHit();
     }
 
     // Brick collisions — resolve one brick per frame
@@ -425,6 +438,7 @@ void gameUpdate(float dt)
         if (b.hp <= 0) {
             b.alive = false;
             score  += (b.type == BrickType::NORMAL) ? 10 : 20;
+            soundPlayBrickBreak();
             // Maybe spawn a falling perk where the brick was.
             spawnDrop(b.x + b.w / 2.0f, b.y + b.h / 2.0f);
         }
